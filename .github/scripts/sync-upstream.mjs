@@ -51,6 +51,7 @@ export async function syncUpstream({
 	repository,
 	branch,
 	hasSyncToken = false,
+	hasSyncSshKey = false,
 	git = runGit,
 	request = githubRequest,
 }) {
@@ -108,9 +109,9 @@ export async function syncUpstream({
 			"--",
 			".github/workflows",
 		]);
-		if (workflowsChanged && !hasSyncToken) {
+		if (workflowsChanged && !hasSyncToken && !hasSyncSshKey) {
 			throw new Error(
-				"更新包含 Actions 文件，请配置具有 Contents/Workflows 写权限的 EDGECHAT_SYNC_TOKEN 后重试。",
+				"更新包含 Actions 文件，请配置具有写权限的仓库部署密钥 EDGECHAT_SYNC_SSH_KEY，或具有 Contents/Workflows 写权限的 EDGECHAT_SYNC_TOKEN 后重试。",
 			);
 		}
 		await git(["push", "origin", `HEAD:refs/heads/${branch}`]);
@@ -141,6 +142,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 		repository: process.env.GITHUB_REPOSITORY,
 		branch: process.env.EDGECHAT_DEFAULT_BRANCH,
 		hasSyncToken: process.env.EDGECHAT_HAS_SYNC_TOKEN === "true",
+		hasSyncSshKey: process.env.EDGECHAT_HAS_SYNC_SSH_KEY === "true",
 	}).catch((error) => {
 		console.error(error.message);
 		process.exitCode = 1;

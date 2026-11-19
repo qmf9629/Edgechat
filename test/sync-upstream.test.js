@@ -70,11 +70,12 @@ function fixture(t, { customized = false, conflict = false } = {}) {
 		originHead: () => command(origin, ["rev-parse", "main"]),
 		read: (name) => readFileSync(join(checkout, name), "utf8"),
 		git: (args) => command(checkout, args),
-		async sync(hasSyncToken = false) {
+		async sync(hasSyncToken = false, hasSyncSshKey = false) {
 			return syncUpstream({
 				repository: "example/Edgechat",
 				branch: "main",
 				hasSyncToken,
+				hasSyncSshKey,
 				git: async (args) => {
 					if (rejectPush && args[0] === "push")
 						throw new Error("Branch protection rejected push");
@@ -184,7 +185,7 @@ test("分支保护拒绝推送时不派发部署", async (t) => {
 	assert.equal(f.requests.length, 1);
 });
 
-test("工作流更新必须显式提供同步令牌，未配置时远端保持原样", async (t) => {
+test("工作流更新必须显式提供同步凭据，未配置时远端保持原样", async (t) => {
 	const f = fixture(t);
 	f.commit(
 		"CI update\n\nEdgeChat-Update: stable",
@@ -194,6 +195,20 @@ test("工作流更新必须显式提供同步令牌，未配置时远端保持�
 	assert.equal(f.originHead(), f.base);
 	assert.equal(f.requests.length, 1);
 	assert.equal((await f.sync(true)).dispatched, true);
+});
+
+test("仓库部署密钥可同步工作流更新并派发部署", async (t) => {
+	const f = fixture(t, { customized: true });
+	const release = f.commit(
+		"CI update\n\nEdgeChat-Update: security",
+		".github/workflows/example.yml",
+	);
+	const result = await f.sync(false, true);
+	assert.equal(result.updated, true);
+	assert.equal(result.dispatched, true);
+	assert.equal(f.originHead(), result.commit);
+	assert.equal(f.read("custom.txt"), "Fork customization\n");
+	f.git(["merge-base", "--is-ancestor", release, "HEAD"]);
 });
 
 test("推送后派发失败，下次检查对当前 SHA 补派部署", async (t) => {
@@ -251,6 +266,11 @@ test("每天两次检查，机器人推送后显式 dispatch，检查阶段不�
 	assert.match(workflow, /contents: write/);
 	assert.match(workflow, /actions: write/);
 	assert.match(workflow, /fetch-depth: 0/);
+	assert.match(workflow, /ssh-key: \$\{\{ secrets.EDGECHAT_SYNC_SSH_KEY \}\}/);
+	assert.match(
+		workflow,
+		/EDGECHAT_HAS_SYNC_SSH_KEY: \$\{\{ secrets.EDGECHAT_SYNC_SSH_KEY != '' \}\}/,
+	);
 	assert.match(
 		workflow,
 		/ref: \$\{\{ github.event.repository.default_branch \}\}/,

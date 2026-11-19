@@ -21,6 +21,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           token: ${{ secrets.EDGECHAT_SYNC_TOKEN || github.token }}
+          ssh-key: ${{ secrets.EDGECHAT_SYNC_SSH_KEY }}
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -30,4 +31,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EDGECHAT_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           EDGECHAT_HAS_SYNC_TOKEN: ${{ secrets.EDGECHAT_SYNC_TOKEN != '' }}
+          EDGECHAT_HAS_SYNC_SSH_KEY: ${{ secrets.EDGECHAT_SYNC_SSH_KEY != '' }}
         run: node .github/scripts/sync-upstream.mjs

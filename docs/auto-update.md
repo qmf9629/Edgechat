@@ -6,11 +6,15 @@
 
 1. 先手动同步一次，确保默认分支已有 `.github/workflows/sync-upstream.yml`。
 2. 在 Actions 中启用工作流。GitHub 默认禁用新 fork 的定时任务；公开仓库 60 天无活动也可能暂停定时运行，需要重新启用。
-3. 推荐添加 Repository Secret `EDGECHAT_SYNC_TOKEN`：使用仅授权当前 fork 的 fine-grained PAT，授予 **Contents: Read and write**、**Workflows: Read and write**。它仅用于 checkout/推送；派发部署使用内置 `GITHUB_TOKEN` 的 Actions 写权限。Classic PAT 对应 `repo` 和 `workflow` 权限，但范围更大，不推荐。
-4. 保留原有 Cloudflare Secrets/仓库变量，允许工作流写入默认分支。分支保护、组织策略及令牌过期可能阻止同步，不会强推绕过保护。
+3. 为包含 Actions 文件的更新配置一种写入凭据，两种方式选其一即可；同时配置时优先使用 SSH：
+   - 推荐使用**当前仓库专用的 SSH deploy key**。生成一对仅用于此仓库的新密钥，将公钥添加到当前 fork 的 **Settings -> Deploy keys -> Add deploy key**，勾选 **Allow write access**；将完整私钥保存到 **Settings -> Secrets and variables -> Actions** 的 Repository Secret `EDGECHAT_SYNC_SSH_KEY`。不要使用个人账户的 SSH 私钥，也不要复用其他仓库的密钥。
+   - 也可添加 Repository Secret `EDGECHAT_SYNC_TOKEN`：使用仅授权当前 fork 的 fine-grained PAT，授予 **Contents: Read and write**、**Workflows: Read and write**。Classic PAT 对应 `repo` 和 `workflow` 权限，但范围更大，不推荐。
+
+   同步凭据仅用于 checkout/推送；使用 SSH 时通过仓库专用 deploy key 连接 Git。查询与派发部署仍使用内置 `GITHUB_TOKEN` 的 Actions 写权限。
+4. 保留原有 Cloudflare Secrets/仓库变量，允许工作流写入默认分支。分支保护、组织策略、deploy key 被撤销或令牌过期可能阻止同步，不会强推绕过保护。
 5. 手动运行一次 `Actions -> Sync Upstream -> Run workflow` 检查配置，之后由定时任务执行。要停用自动更新，直接 Disable workflow。
 
-未配置同步令牌时，普通源码更新使用内置令牌；更新涉及 Actions 文件时会明确失败，要求配置上述 Secret，远端分支不变。
+`EDGECHAT_SYNC_SSH_KEY` 和 `EDGECHAT_SYNC_TOKEN` 均未配置时，普通源码更新使用内置令牌；更新涉及 Actions 文件时会明确失败，要求配置上述任一 Secret，远端分支不变。`permissions: actions: write` 只允许工作流操作 Actions，不能赋予内置令牌修改工作流文件的权限。
 
 ## 维护者如何标记提交
 
@@ -32,7 +36,7 @@ git push origin master
 
 ## 为什么同步后仍能部署
 
-内置 `GITHUB_TOKEN` 推送不会触发新的 `push` 工作流，因此脚本显式通过 `workflow_dispatch` 派发 `00 Deploy Worker`，从更新后的默认分支拉取代码、测试、迁移并部署。自动合并提交带 `[skip ci]`，即使配置 PAT 也不会额外启动 push 部署；该标记不会阻止显式 dispatch。
+内置 `GITHUB_TOKEN` 推送不会触发新的 `push` 工作流，因此脚本显式通过 `workflow_dispatch` 派发 `00 Deploy Worker`，从更新后的默认分支拉取代码、测试、迁移并部署。自动合并提交带 `[skip ci]`，即使配置 SSH deploy key 或 PAT 也不会额外启动 push 部署；该标记不会阻止显式 dispatch。派发请求始终使用内置 `GITHUB_TOKEN`，无需向 SSH 密钥或 PAT 额外授予 Actions 权限。
 
 当前 SHA 已成功部署或有部署正在运行时不重复派发；派发失败、部署失败或取消后，下次检查会补派。部署记录 fork 当前 SHA，不会记录同步前的旧 SHA。请在 Actions 中分别查看 `Sync Upstream` 和 `00 Deploy Worker`，同步成功不代表后续部署已成功。
 
