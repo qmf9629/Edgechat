@@ -7,7 +7,7 @@
 1. 先手动同步一次，确保默认分支已有 `.github/workflows/sync-upstream.yml`。
 2. 在 Actions 中启用工作流。GitHub 默认禁用新 fork 的定时任务；公开仓库 60 天无活动也可能暂停定时运行，需要重新启用。
 3. 为包含 Actions 文件的更新配置一种写入凭据，两种方式选其一即可；同时配置时优先使用 SSH：
-   - 推荐使用**当前仓库专用的 SSH deploy key**。生成一对仅用于此仓库的新密钥，将公钥添加到当前 fork 的 **Settings -> Deploy keys -> Add deploy key**，勾选 **Allow write access**；将完整私钥保存到 **Settings -> Secrets and variables -> Actions** 的 Repository Secret `EDGECHAT_SYNC_SSH_KEY`。不要使用个人账户的 SSH 私钥，也不要复用其他仓库的密钥。
+   - 推荐使用**当前仓库专用的 SSH deploy key**。生成一对仅用于此仓库的新密钥，通过 GitHub 网页将公钥添加到当前 fork 的 **Settings -> Deploy keys -> Add deploy key**，勾选 **Allow write access**；将完整私钥保存到 **Settings -> Secrets and variables -> Actions** 的 Repository Secret `EDGECHAT_SYNC_SSH_KEY`。不要使用个人账户的 SSH 私钥，也不要复用其他仓库的密钥。若通过缺少 `workflow` 权限的 OAuth 客户端调用 API 创建 deploy key，可能仍遇到工作流更新被拒绝；此时在网页删除并重新添加公钥，再运行同步验证。
    - 也可添加 Repository Secret `EDGECHAT_SYNC_TOKEN`：使用仅授权当前 fork 的 fine-grained PAT，授予 **Contents: Read and write**、**Workflows: Read and write**。Classic PAT 对应 `repo` 和 `workflow` 权限，但范围更大，不推荐。
 
    同步凭据仅用于 checkout/推送；使用 SSH 时通过仓库专用 deploy key 连接 Git。查询与派发部署仍使用内置 `GITHUB_TOKEN` 的 Actions 写权限。
